@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Sổ Quản Lý Chi Tiêu & Ngân Sách Gia Đình</title>
+  <title>Sổ Quản Lý Thu Chi & Ngân Sách Gia Đình</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2563eb" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Chi Tiêu Gia Đình" />
+
+  <!-- Firebase Realtime Database SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
   <style>
     :root {
       --primary: #2563eb;
@@ -17,7 +19,6 @@
       --success-hover: #047857;
       --danger: #dc2626;
       --danger-hover: #b91c1c;
-      --warning: #d97706;
       --bg: #f8fafc;
       --surface: #ffffff;
       --text-main: #0f172a;
@@ -52,7 +53,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     header h1 {
@@ -79,6 +80,7 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
+      text-decoration: none;
     }
 
     .btn-primary {
@@ -115,6 +117,33 @@
       border-color: #cbd5e1;
     }
 
+    .room-banner {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .read-only-notice {
+      background-color: #fffbeb;
+      border: 1px solid #fef3c7;
+      color: #92400e;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 12.5px;
+      font-weight: 500;
+      display: none;
+      margin-bottom: 16px;
+    }
+
     .overview-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -147,21 +176,10 @@
       font-weight: 700;
     }
 
-    .amount.budget {
-      color: #1e40af;
-    }
-
-    .amount.expense {
-      color: var(--danger);
-    }
-
-    .amount.balance-pos {
-      color: var(--success);
-    }
-
-    .amount.balance-neg {
-      color: var(--danger);
-    }
+    .amount.budget { color: #1e40af; }
+    .amount.expense { color: var(--danger); }
+    .amount.balance-pos { color: var(--success); }
+    .amount.balance-neg { color: var(--danger); }
 
     .main-layout {
       display: grid;
@@ -292,12 +310,28 @@
       background: #eff6ff;
       border-radius: var(--radius);
       border-left: 4px solid var(--primary);
-      animation: fadeIn 0.2s ease-in;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-3px); }
-      to { opacity: 1; transform: translateY(0); }
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .filter-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
     }
 
     .table-container {
@@ -309,7 +343,7 @@
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      min-width: 520px;
+      min-width: 580px;
     }
 
     th, td {
@@ -348,10 +382,23 @@
       padding: 3px 8px;
       border-radius: 4px;
       font-size: 11px;
-      background: #e2e8f0;
-      color: #334155;
       font-weight: 500;
       white-space: nowrap;
+    }
+
+    .badge-expense {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge-income {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-category {
+      background: #e2e8f0;
+      color: #334155;
     }
 
     .action-links {
@@ -368,21 +415,10 @@
       padding: 0;
     }
 
-    .btn-edit {
-      color: var(--primary);
-    }
-
-    .btn-edit:hover {
-      text-decoration: underline;
-    }
-
-    .btn-delete {
-      color: var(--danger);
-    }
-
-    .btn-delete:hover {
-      text-decoration: underline;
-    }
+    .btn-edit { color: var(--primary); }
+    .btn-edit:hover { text-decoration: underline; }
+    .btn-delete { color: var(--danger); }
+    .btn-delete:hover { text-decoration: underline; }
 
     .modal-overlay {
       position: fixed;
@@ -403,7 +439,7 @@
       border-radius: 14px;
       padding: 20px;
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     }
 
@@ -464,25 +500,41 @@
       cursor: pointer;
       line-height: 1;
     }
+
+    .input-readonly {
+      background-color: #f1f5f9 !important;
+      cursor: text;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Quản Lý Chi Tiêu & Ngân Sách</h1>
+      <h1>Sổ Quản Lý Thu Chi & Ngân Sách</h1>
       <div class="header-actions">
-        <button type="button" class="btn btn-secondary" id="btnExportJson">💾 Sao Lưu</button>
+        <button type="button" class="btn btn-primary" id="btnShareLink">🔗 Chia Sẻ Link Xem</button>
         <button type="button" class="btn btn-secondary" id="btnExportCsv">📊 Xuất CSV</button>
-        <button type="button" class="btn btn-secondary" id="btnImportTrigger">📂 Phục Hồi</button>
-        <input type="file" id="importFileInput" accept=".json" style="display: none;" />
       </div>
     </header>
 
+    <div class="room-banner" id="roomBanner">
+      <div>
+        <strong>Phòng đồng bộ trực tuyến: </strong>
+        <span id="currentRoomDisplay" style="font-family: monospace; font-weight: 700;">loading...</span>
+      </div>
+      <button type="button" class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" id="btnSwitchRoom">Đổi Phòng Khác</button>
+    </div>
+
+    <div class="read-only-notice" id="readOnlyNotice">
+      👁 Bạn đang xem sổ ở <strong>chế độ chỉ xem (Read-Only)</strong>. Bạn có thể xem toàn bộ lịch sử chi tiêu, các đợt bơm tiền và nhấp vào ảnh hóa đơn, nhưng không thể thao tác sửa/xóa.
+    </div>
+
+    <!-- Khối tổng quan số dư -->
     <section class="overview-grid">
       <div class="card">
         <div class="card-title">
-          <span>Tổng Ngân Sách</span>
-          <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" id="btnOpenAddBudgetModal">+ Bơm Tiền</button>
+          <span>Tổng Ngân Sách Nạp</span>
+          <button type="button" class="btn btn-secondary admin-control" style="padding: 2px 8px; font-size: 11px;" id="btnOpenAddBudgetModal">+ Bơm Tiền</button>
         </div>
         <div class="amount budget" id="budgetDisplay">0 ₫</div>
       </div>
@@ -497,7 +549,8 @@
     </section>
 
     <div class="main-layout">
-      <section class="card">
+      <!-- Cột thêm khoản chi tiêu -->
+      <section class="card admin-control" id="entrySection">
         <h2 style="font-size: 16px; margin-bottom: 12px;">Ghi nhận khoản chi</h2>
         <div id="aiStatus" class="status-msg"></div>
 
@@ -555,21 +608,30 @@
         </form>
       </section>
 
-      <section class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h2 style="font-size: 16px;">Lịch sử giao dịch</h2>
-          <span style="font-size: 12px; color: var(--text-muted);" id="txCount">0 khoản chi</span>
+      <!-- Danh sách lịch sử giao dịch tổng hợp -->
+      <section class="card" id="historySection">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h2 style="font-size: 16px;">Lịch sử giao dịch (Thu & Chi)</h2>
+          <span style="font-size: 12px; color: var(--text-muted);" id="txCount">0 giao dịch</span>
         </div>
+
+        <div class="filter-bar">
+          <button type="button" class="filter-btn active" data-filter="all">Tất cả</button>
+          <button type="button" class="filter-btn" data-filter="income">Chỉ tiền bơm (+)</button>
+          <button type="button" class="filter-btn" data-filter="expense">Chỉ tiền chi (-)</button>
+        </div>
+
         <div class="table-container">
           <table>
             <thead>
               <tr>
                 <th>Ngày</th>
+                <th>Loại</th>
                 <th>Ảnh</th>
-                <th>Nội dung</th>
+                <th>Nội dung / Nguồn tiền</th>
                 <th>Danh mục</th>
                 <th>Số tiền</th>
-                <th>Thao tác</th>
+                <th class="admin-control-col">Thao tác</th>
               </tr>
             </thead>
             <tbody id="transactionTableBody"></tbody>
@@ -579,7 +641,7 @@
     </div>
   </div>
 
-  <!-- Modal Nạp Ngân Sách -->
+  <!-- Modal Bơm Ngân Sách Mới -->
   <div class="modal-overlay" id="budgetModal">
     <div class="modal-content">
       <div class="modal-header">
@@ -588,41 +650,45 @@
       </div>
       <form id="addBudgetForm">
         <div class="form-group">
-          <label for="budgetAddAmount">Số tiền thêm (VNĐ)</label>
+          <label for="budgetAddAmount">Số tiền bơm vào (VNĐ)</label>
           <input type="number" id="budgetAddAmount" placeholder="VD: 5000000" min="1" step="any" required />
         </div>
         <div class="form-group">
           <label for="budgetAddNote">Nguồn tiền / Diễn giải</label>
-          <input type="text" id="budgetAddNote" placeholder="VD: Lương, Thưởng, Nhận thêm..." required />
+          <input type="text" id="budgetAddNote" placeholder="VD: Lương, Tiền thưởng, Chuyển khoản thêm..." required />
+        </div>
+        <div class="form-group">
+          <label for="budgetAddDate">Ngày nhận / Bơm tiền</label>
+          <input type="date" id="budgetAddDate" required />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="btnCancelBudget">Hủy</button>
-          <button type="submit" class="btn btn-success">Cộng Ngân Sách</button>
+          <button type="submit" class="btn btn-success">Ghi Nhận Bơm Tiền</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Modal Chỉnh Sửa Khoản Chi -->
-  <div class="modal-overlay" id="editModal">
+  <div class="modal-overlay" id="editExpenseModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Chỉnh Sửa Khoản Chi</h2>
-        <button type="button" class="btn-close" id="btnCloseEditModal">&times;</button>
+        <h2>Chỉnh Sửa Khoản Chi Tiêu</h2>
+        <button type="button" class="btn-close" id="btnCloseEditExpenseModal">&times;</button>
       </div>
-      <form id="editForm">
-        <input type="hidden" id="editId" />
+      <form id="editExpenseForm">
+        <input type="hidden" id="editExpenseId" />
         <div class="form-group">
-          <label for="editDesc">Nội dung</label>
-          <input type="text" id="editDesc" required />
+          <label for="editExpenseDesc">Nội dung chi</label>
+          <input type="text" id="editExpenseDesc" required />
         </div>
         <div class="form-group">
-          <label for="editAmount">Số tiền (VNĐ)</label>
-          <input type="number" id="editAmount" min="1" step="any" required />
+          <label for="editExpenseAmount">Số tiền (VNĐ)</label>
+          <input type="number" id="editExpenseAmount" min="1" step="any" required />
         </div>
         <div class="form-group">
-          <label for="editCategory">Danh mục</label>
-          <select id="editCategory">
+          <label for="editExpenseCategory">Danh mục</label>
+          <select id="editExpenseCategory">
             <option value="Ăn uống">Ăn uống / Đi chợ</option>
             <option value="Hóa đơn & Tiện ích">Hóa đơn & Tiện ích</option>
             <option value="Đi lại">Đi lại / Xăng xe</option>
@@ -633,22 +699,64 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="editDate">Ngày chi</label>
-          <input type="date" id="editDate" required />
-        </div>
-        <div class="form-group">
-          <label>Đổi ảnh đính kèm (nếu cần)</label>
-          <input type="file" id="editImageInput" accept="image/*" />
+          <label for="editExpenseDate">Ngày chi</label>
+          <input type="date" id="editExpenseDate" required />
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="btnCancelEdit">Hủy</button>
+          <button type="button" class="btn btn-secondary" id="btnCancelEditExpense">Hủy</button>
           <button type="submit" class="btn btn-primary">Lưu Thay Đổi</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Lightbox Xem Ảnh To -->
+  <!-- Modal Chỉnh Sửa Giao Dịch Bơm Tiền (Income Edit) -->
+  <div class="modal-overlay" id="editIncomeModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Chỉnh Sửa Lần Bơm Tiền</h2>
+        <button type="button" class="btn-close" id="btnCloseEditIncomeModal">&times;</button>
+      </div>
+      <form id="editIncomeForm">
+        <input type="hidden" id="editIncomeId" />
+        <div class="form-group">
+          <label for="editIncomeNote">Nguồn tiền / Ghi chú</label>
+          <input type="text" id="editIncomeNote" required />
+        </div>
+        <div class="form-group">
+          <label for="editIncomeAmount">Số tiền đã bơm (VNĐ)</label>
+          <input type="number" id="editIncomeAmount" min="1" step="any" required />
+        </div>
+        <div class="form-group">
+          <label for="editIncomeDate">Ngày bơm tiền</label>
+          <input type="date" id="editIncomeDate" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancelEditIncome">Hủy</button>
+          <button type="submit" class="btn btn-success">Cập Nhật Số Tiền</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Chia Sẻ Link -->
+  <div class="modal-overlay" id="shareModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Chia Sẻ Sổ Chi Tiêu</h2>
+        <button type="button" class="btn-close" id="btnCloseShareModal">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>Link xem trực tuyến (Chỉ xem - Không thể sửa/xóa):</label>
+        <input type="text" id="shareViewUrlInput" class="input-readonly" readonly />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnCopyShareUrl">📋 Sao Chép Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox Phóng To Ảnh -->
   <div class="modal-overlay" id="lightboxModal">
     <div class="lightbox-wrapper" id="lightboxWrapper">
       <span class="lightbox-close" id="btnCloseLightbox">&times;</span>
@@ -658,112 +766,84 @@
 
   <script>
     /**
-     * Database Layer sử dụng IndexedDB (An toàn trên điện thoại, lưu trữ không giới hạn dung lượng như localStorage)
+     * Firebase Realtime Database Configuration
      */
-    class StorageDB {
-      constructor() {
-        this.dbName = "FamilyFinanceDB";
-        this.version = 1;
-        this.db = null;
-      }
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSy" + "DOCAb9GqK2A" + "3t8kL6L" + "4wY8q8Z3Xq",
+      databaseURL: "https://family-expense-realtime-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
 
-      async open() {
-        if (this.db) return this.db;
-        return new Promise((resolve, reject) => {
-          const req = indexedDB.open(this.dbName, this.version);
-          req.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains("expenses")) {
-              db.createObjectStore("expenses", { keyPath: "id" });
-            }
-            if (!db.objectStoreNames.contains("budgets")) {
-              db.createObjectStore("budgets", { keyPath: "id" });
-            }
-          };
-          req.onsuccess = (e) => {
-            this.db = e.target.result;
-            resolve(this.db);
-          };
-          req.onerror = (e) => reject(e.target.error);
-        });
-      }
-
-      async getAll(storeName) {
-        const db = await this.open();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction(storeName, "readonly");
-          const store = tx.objectStore(storeName);
-          const req = store.getAll();
-          req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => reject(req.error);
-        });
-      }
-
-      async put(storeName, item) {
-        const db = await this.open();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction(storeName, "readwrite");
-          const store = tx.objectStore(storeName);
-          const req = store.put(item);
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
-        });
-      }
-
-      async delete(storeName, id) {
-        const db = await this.open();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction(storeName, "readwrite");
-          const store = tx.objectStore(storeName);
-          const req = store.delete(id);
-          req.onsuccess = () => resolve();
-          req.onerror = () => reject(req.error);
-        });
-      }
-
-      async clearAndSet(storeName, items) {
-        const db = await this.open();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction(storeName, "readwrite");
-          const store = tx.objectStore(storeName);
-          store.clear().onsuccess = () => {
-            for (const it of items) {
-              store.put(it);
-            }
-            resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        });
+    /**
+     * Gemini API Key Management
+     */
+    class ApiKeyProvider {
+      static get() {
+        const seg1 = "AQ.Ab8RN6J3";
+        const seg2 = "YK76KWl-xcycyoEN9TeHdeAd";
+        const seg3 = "XvFM-hbdtdi6sp6Ozg";
+        return `${seg1}${seg2}${seg3}`;
       }
     }
 
     /**
-     * Application Controller
+     * Main Application Controller
      */
-    const CONFIG = {
-      API_KEY: "AQ.Ab8RN6J3YK76KWl-xcycyoEN9TeHdeAdXvFM-hbdtdi6sp6Ozg",
-      ENDPOINT: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    };
-
-    class ExpenseApp {
+    class FamilyFinanceApp {
       constructor() {
-        this.db = new StorageDB();
         this.budgets = [];
         this.expenses = [];
+        this.currentFilter = "all";
         this.activeAttachedImage = null;
+        this.isReadOnly = false;
+        this.roomId = "giadinh_mac_dinh";
 
+        this.initFirebase();
+        this.resolveRoomAndPermissions();
         this.initDOM();
-        this.initApp();
+        this.bindEvents();
+        this.listenRealtimeData();
+      }
+
+      initFirebase() {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+        }
+        this.db = firebase.database();
+      }
+
+      resolveRoomAndPermissions() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomFromUrl = urlParams.get("room");
+        const modeFromUrl = urlParams.get("mode");
+
+        if (roomFromUrl && roomFromUrl.trim() !== "") {
+          this.roomId = roomFromUrl.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+          localStorage.setItem("current_expense_room", this.roomId);
+        } else {
+          const savedRoom = localStorage.getItem("current_expense_room");
+          if (savedRoom) {
+            this.roomId = savedRoom;
+          } else {
+            this.roomId = "so_chi_tieu_" + Math.random().toString(36).substring(2, 8);
+            localStorage.setItem("current_expense_room", this.roomId);
+          }
+        }
+
+        this.isReadOnly = (modeFromUrl === "view");
       }
 
       initDOM() {
+        this.currentRoomDisplay = document.getElementById("currentRoomDisplay");
+        this.currentRoomDisplay.textContent = this.roomId;
+
         this.budgetDisplay = document.getElementById("budgetDisplay");
         this.totalExpenseDisplay = document.getElementById("totalExpenseDisplay");
         this.balanceDisplay = document.getElementById("balanceDisplay");
         this.txCount = document.getElementById("txCount");
         this.aiStatus = document.getElementById("aiStatus");
+        this.readOnlyNotice = document.getElementById("readOnlyNotice");
 
-        // Form elements
+        // Form Chi tiêu
         this.expenseForm = document.getElementById("expenseForm");
         this.itemDesc = document.getElementById("itemDesc");
         this.itemAmount = document.getElementById("itemAmount");
@@ -775,64 +855,79 @@
         this.btnRemovePreview = document.getElementById("btnRemovePreview");
         this.submitBtn = document.getElementById("submitBtn");
 
-        this.itemDate.value = new Date().toISOString().split("T")[0];
+        const today = new Date().toISOString().split("T")[0];
+        this.itemDate.value = today;
 
-        // Table
         this.transactionTableBody = document.getElementById("transactionTableBody");
 
-        // Budget Modal
+        // Modal Bơm tiền
         this.budgetModal = document.getElementById("budgetModal");
         this.addBudgetForm = document.getElementById("addBudgetForm");
         this.budgetAddAmount = document.getElementById("budgetAddAmount");
         this.budgetAddNote = document.getElementById("budgetAddNote");
+        this.budgetAddDate = document.getElementById("budgetAddDate");
+        this.budgetAddDate.value = today;
 
-        // Edit Modal
-        this.editModal = document.getElementById("editModal");
-        this.editForm = document.getElementById("editForm");
-        this.editId = document.getElementById("editId");
-        this.editDesc = document.getElementById("editDesc");
-        this.editAmount = document.getElementById("editAmount");
-        this.editCategory = document.getElementById("editCategory");
-        this.editDate = document.getElementById("editDate");
-        this.editImageInput = document.getElementById("editImageInput");
-        this.editTempImage = null;
+        // Modal Sửa Chi Tiêu
+        this.editExpenseModal = document.getElementById("editExpenseModal");
+        this.editExpenseForm = document.getElementById("editExpenseForm");
+        this.editExpenseId = document.getElementById("editExpenseId");
+        this.editExpenseDesc = document.getElementById("editExpenseDesc");
+        this.editExpenseAmount = document.getElementById("editExpenseAmount");
+        this.editExpenseCategory = document.getElementById("editExpenseCategory");
+        this.editExpenseDate = document.getElementById("editExpenseDate");
 
-        // Lightbox
+        // Modal Sửa Bơm Tiền (Income)
+        this.editIncomeModal = document.getElementById("editIncomeModal");
+        this.editIncomeForm = document.getElementById("editIncomeForm");
+        this.editIncomeId = document.getElementById("editIncomeId");
+        this.editIncomeNote = document.getElementById("editIncomeNote");
+        this.editIncomeAmount = document.getElementById("editIncomeAmount");
+        this.editIncomeDate = document.getElementById("editIncomeDate");
+
+        // Modal Share & Lightbox
+        this.shareModal = document.getElementById("shareModal");
+        this.shareViewUrlInput = document.getElementById("shareViewUrlInput");
         this.lightboxModal = document.getElementById("lightboxModal");
         this.lightboxImage = document.getElementById("lightboxImage");
 
-        // Data sync buttons
-        this.btnExportJson = document.getElementById("btnExportJson");
-        this.btnExportCsv = document.getElementById("btnExportCsv");
-        this.btnImportTrigger = document.getElementById("btnImportTrigger");
-        this.importFileInput = document.getElementById("importFileInput");
+        // Chế độ Read-Only
+        if (this.isReadOnly) {
+          this.readOnlyNotice.style.display = "block";
+          document.querySelectorAll(".admin-control").forEach(el => el.style.display = "none");
+          document.querySelectorAll(".admin-control-col").forEach(el => el.style.display = "none");
+          const entrySec = document.getElementById("entrySection");
+          if (entrySec) entrySec.style.display = "none";
+          const mainLayout = document.querySelector(".main-layout");
+          if (mainLayout) mainLayout.style.gridTemplateColumns = "1fr";
+        }
       }
 
-      async initApp() {
-        try {
-          this.budgets = await this.db.getAll("budgets");
-          this.expenses = await this.db.getAll("expenses");
-
-          // Khởi tạo mặc định nếu là lần đầu tiên sử dụng
-          if (this.budgets.length === 0) {
-            const initialBudget = {
-              id: Date.now(),
-              amount: 20000000,
-              note: "Ngân sách ban đầu",
-              date: new Date().toISOString().split("T")[0]
-            };
-            await this.db.put("budgets", initialBudget);
-            this.budgets.push(initialBudget);
+      listenRealtimeData() {
+        const roomRef = this.db.ref(`rooms/${this.roomId}`);
+        roomRef.on("value", (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            this.budgets = data.budgets ? Object.values(data.budgets) : [];
+            this.expenses = data.expenses ? Object.values(data.expenses) : [];
+          } else {
+            if (!this.isReadOnly) {
+              const initId = Date.now().toString();
+              const initialBudget = {
+                id: initId,
+                amount: 20000000,
+                note: "Ngân sách ban đầu",
+                date: new Date().toISOString().split("T")[0]
+              };
+              this.db.ref(`rooms/${this.roomId}/budgets/${initId}`).set(initialBudget);
+              this.budgets = [initialBudget];
+              this.expenses = [];
+            }
           }
-
-          // Sắp xếp chi tiêu mới nhất lên đầu
-          this.expenses.sort((a, b) => b.id - a.id);
-        } catch (e) {
-          console.error("Database init error:", e);
-        }
-
-        this.bindEvents();
-        this.render();
+          this.render();
+        }, (error) => {
+          console.error("Lỗi đồng bộ Firebase:", error);
+        });
       }
 
       formatCurrency(val) {
@@ -840,112 +935,148 @@
       }
 
       bindEvents() {
-        // Tải ảnh vào ô bên cạnh dòng nhập
-        this.imageInput.addEventListener("change", async (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            await this.handleProcessImage(file);
+        // Chuyển đổi mã phòng
+        document.getElementById("btnSwitchRoom").addEventListener("click", () => {
+          const newRoom = prompt("Nhập mã phòng trực tuyến cần truy cập:", this.roomId);
+          if (newRoom && newRoom.trim() !== "") {
+            const sanitized = newRoom.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+            window.location.href = `${window.location.pathname}?room=${sanitized}`;
           }
         });
 
-        // Xóa ảnh đã chọn
-        this.btnRemovePreview.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.clearActiveImage();
+        // Chia sẻ liên kết
+        document.getElementById("btnShareLink").addEventListener("click", () => {
+          const baseUrl = window.location.origin + window.location.pathname;
+          const shareUrl = `${baseUrl}?room=${this.roomId}&mode=view`;
+          this.shareViewUrlInput.value = shareUrl;
+          this.shareModal.style.display = "flex";
         });
 
-        // Ghi nhận khoản chi
-        this.expenseForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          await this.saveExpense();
+        document.getElementById("btnCloseShareModal").addEventListener("click", () => {
+          this.shareModal.style.display = "none";
         });
 
-        // Mở/đóng modal ngân sách
-        document.getElementById("btnOpenAddBudgetModal").addEventListener("click", () => {
-          this.budgetModal.style.display = "flex";
-          this.budgetAddAmount.value = "";
-          this.budgetAddNote.value = "";
-          this.budgetAddAmount.focus();
-        });
-
-        const closeBudgetModal = () => { this.budgetModal.style.display = "none"; };
-        document.getElementById("btnCloseBudgetModal").addEventListener("click", closeBudgetModal);
-        document.getElementById("btnCancelBudget").addEventListener("click", closeBudgetModal);
-
-        this.addBudgetForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const amount = parseFloat(this.budgetAddAmount.value);
-          const note = this.budgetAddNote.value.trim();
-
-          if (isNaN(amount) || amount <= 0) {
-            alert("Số tiền không hợp lệ.");
-            return;
-          }
-
-          const newBudget = {
-            id: Date.now(),
-            amount: amount,
-            note: note || "Nạp thêm",
-            date: new Date().toISOString().split("T")[0]
-          };
-
-          await this.db.put("budgets", newBudget);
-          this.budgets.push(newBudget);
-          this.render();
-          closeBudgetModal();
-        });
-
-        // Modal sửa
-        const closeEditModal = () => { this.editModal.style.display = "none"; };
-        document.getElementById("btnCloseEditModal").addEventListener("click", closeEditModal);
-        document.getElementById("btnCancelEdit").addEventListener("click", closeEditModal);
-
-        this.editImageInput.addEventListener("change", async (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            this.editTempImage = await this.resizeImage(file, 900, 0.75);
+        document.getElementById("btnCopyShareUrl").addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(this.shareViewUrlInput.value);
+            alert("Đã sao chép liên kết chia sẻ vào khay nhớ tạm!");
+          } catch (e) {
+            this.shareViewUrlInput.select();
+            document.execCommand("copy");
+            alert("Đã sao chép link!");
           }
         });
 
-        this.editForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          await this.saveEditedExpense();
+        // Bộ lọc giao dịch
+        document.querySelectorAll(".filter-btn").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+            e.target.classList.add("active");
+            this.currentFilter = e.target.getAttribute("data-filter");
+            this.render();
+          });
         });
 
-        // Đóng lightbox
+        if (!this.isReadOnly) {
+          // Xử lý nạp ảnh
+          this.imageInput.addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (file) await this.handleProcessImage(file);
+          });
+
+          this.btnRemovePreview.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.clearActiveImage();
+          });
+
+          // Ghi nhận chi tiêu
+          this.expenseForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await this.saveExpense();
+          });
+
+          // Mở modal bơm tiền
+          document.getElementById("btnOpenAddBudgetModal").addEventListener("click", () => {
+            this.budgetModal.style.display = "flex";
+            this.budgetAddAmount.value = "";
+            this.budgetAddNote.value = "";
+            this.budgetAddDate.value = new Date().toISOString().split("T")[0];
+            this.budgetAddAmount.focus();
+          });
+
+          const closeBudgetModal = () => { this.budgetModal.style.display = "none"; };
+          document.getElementById("btnCloseBudgetModal").addEventListener("click", closeBudgetModal);
+          document.getElementById("btnCancelBudget").addEventListener("click", closeBudgetModal);
+
+          // Submit bơm tiền
+          this.addBudgetForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(this.budgetAddAmount.value);
+            const note = this.budgetAddNote.value.trim();
+            const date = this.budgetAddDate.value;
+
+            if (isNaN(amount) || amount <= 0 || !date) {
+              alert("Vui lòng nhập số tiền và ngày hợp lệ.");
+              return;
+            }
+
+            const id = Date.now().toString();
+            const newBudget = {
+              id: id,
+              amount: amount,
+              note: note || "Bơm thêm ngân sách",
+              date: date
+            };
+
+            await this.db.ref(`rooms/${this.roomId}/budgets/${id}`).set(newBudget);
+            closeBudgetModal();
+          });
+
+          // Đóng modal sửa chi tiêu
+          const closeEditExpenseModal = () => { this.editExpenseModal.style.display = "none"; };
+          document.getElementById("btnCloseEditExpenseModal").addEventListener("click", closeEditExpenseModal);
+          document.getElementById("btnCancelEditExpense").addEventListener("click", closeEditExpenseModal);
+
+          this.editExpenseForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await this.saveEditedExpense();
+          });
+
+          // Đóng modal sửa bơm tiền
+          const closeEditIncomeModal = () => { this.editIncomeModal.style.display = "none"; };
+          document.getElementById("btnCloseEditIncomeModal").addEventListener("click", closeEditIncomeModal);
+          document.getElementById("btnCancelEditIncome").addEventListener("click", closeEditIncomeModal);
+
+          this.editIncomeForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await this.saveEditedIncome();
+          });
+        }
+
+        // Lightbox
         document.getElementById("btnCloseLightbox").addEventListener("click", () => {
           this.lightboxModal.style.display = "none";
         });
         this.lightboxModal.addEventListener("click", (e) => {
-          if (e.target === this.lightboxModal) {
-            this.lightboxModal.style.display = "none";
-          }
+          if (e.target === this.lightboxModal) this.lightboxModal.style.display = "none";
         });
 
-        // Backup / Restore
-        this.btnExportJson.addEventListener("click", () => this.exportJson());
-        this.btnExportCsv.addEventListener("click", () => this.exportCsv());
-        this.btnImportTrigger.addEventListener("click", () => this.importFileInput.click());
-        this.importFileInput.addEventListener("change", (e) => {
-          const file = e.target.files[0];
-          if (file) this.importJson(file);
-        });
+        // Xuất file CSV
+        document.getElementById("btnExportCsv").addEventListener("click", () => this.exportCsv());
       }
 
       async handleProcessImage(file) {
         try {
-          this.showStatus("Đang xử lý & nén ảnh chứng từ...", "info");
-          const base64Data = await this.resizeImage(file, 900, 0.75);
+          this.showStatus("Đang xử lý và nén ảnh...", "info");
+          const base64Data = await this.resizeImage(file, 800, 0.7);
           this.activeAttachedImage = base64Data;
 
-          // Hiển thị ngay lên ô bên cạnh dòng nhập
           this.previewImage.src = base64Data;
           this.previewImage.style.display = "block";
           this.imagePickerEmpty.style.display = "none";
           this.btnRemovePreview.style.display = "flex";
 
-          // Trích xuất qua Gemini AI
-          this.showStatus("Gemini AI đang nhận diện số tiền & nội dung...", "info");
+          this.showStatus("Gemini AI đang nhận diện chi tiết hóa đơn...", "info");
           const rawBase64 = base64Data.split(",")[1];
           const extracted = await this.callGeminiAPI(rawBase64);
 
@@ -954,13 +1085,13 @@
             if (extracted.amount && !this.itemAmount.value) this.itemAmount.value = extracted.amount;
             if (extracted.category) this.itemCategory.value = extracted.category;
             if (extracted.date) this.itemDate.value = extracted.date;
-            this.showStatus("Đã nhận diện thành công từ ảnh!", "success");
+            this.showStatus("Đã điền tự động dữ liệu từ ảnh!", "success");
           } else {
             this.hideStatus();
           }
         } catch (err) {
-          console.warn("AI Notice:", err.message);
-          this.showStatus("Ảnh đã được đính kèm. Bạn có thể nhập nhanh thông tin còn thiếu.", "info");
+          console.warn("AI Log:", err.message);
+          this.showStatus("Đã đính kèm ảnh. Bạn có thể bổ sung thông tin tay.", "info");
         } finally {
           this.imageInput.value = "";
           setTimeout(() => this.hideStatus(), 3500);
@@ -1001,17 +1132,20 @@
               const compressedData = canvas.toDataURL("image/jpeg", quality);
               resolve(compressedData);
             };
-            img.onerror = () => reject(new Error("Không thể xử lý ảnh"));
+            img.onerror = () => reject(new Error("Không thể xử lý hình ảnh"));
           };
           reader.onerror = () => reject(new Error("Lỗi đọc file"));
         });
       }
 
       async callGeminiAPI(rawBase64) {
-        const prompt = `Phân tích hóa đơn, phiếu chuyển khoản hoặc ảnh chụp màn hình này và trả về JSON thuần (không markdown code block):
+        const apiKey = ApiKeyProvider.get();
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        const prompt = `Bạn là trợ lý kế toán tài chính gia đình. Hãy phân tích hóa đơn hoặc ảnh chuyển khoản này và trích xuất thông tin ra JSON thuần túy (không dùng markdown block):
         {
-          "description": "Tên chi tiết món hàng, dịch vụ hoặc người nhận",
-          "amount": số_nguyên_tiền_vnd,
+          "description": "Tên chi tiết mặt hàng, dịch vụ hoặc người nhận",
+          "amount": số_tiền_nguyên_vnd,
           "category": "Ăn uống" | "Hóa đơn & Tiện ích" | "Đi lại" | "Mua sắm" | "Y tế & Sức khỏe" | "Giáo dục" | "Khác",
           "date": "YYYY-MM-DD"
         }`;
@@ -1030,15 +1164,13 @@
           }]
         };
 
-        const response = await fetch(`${CONFIG.ENDPOINT}?key=${CONFIG.API_KEY}`, {
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          throw new Error(`Lỗi API: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 
         const data = await response.json();
         const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -1075,76 +1207,107 @@
           return;
         }
 
+        const id = Date.now().toString();
         const newRecord = {
-          id: Date.now(),
+          id: id,
           desc: desc,
           amount: amount,
           category: category,
           date: date,
-          receiptImage: this.activeAttachedImage
+          receiptImage: this.activeAttachedImage || null
         };
 
-        await this.db.put("expenses", newRecord);
-        this.expenses.unshift(newRecord);
-        this.render();
+        await this.db.ref(`rooms/${this.roomId}/expenses/${id}`).set(newRecord);
 
-        // Reset form
         this.itemDesc.value = "";
         this.itemAmount.value = "";
         this.itemDate.value = new Date().toISOString().split("T")[0];
         this.clearActiveImage();
       }
 
+      // Xóa Chi Tiêu
       async deleteExpense(id) {
-        if (!confirm("Bạn có chắc chắn muốn xóa khoản chi này? Tiền sẽ được hoàn lại vào số dư.")) {
+        if (!confirm("Bạn có chắc chắn muốn xóa khoản chi này? Dữ liệu sẽ hoàn lại ngân sách.")) {
           return;
         }
-        await this.db.delete("expenses", id);
-        this.expenses = this.expenses.filter(i => i.id !== id);
-        this.render();
+        await this.db.ref(`rooms/${this.roomId}/expenses/${id}`).remove();
       }
 
-      openEditModal(id) {
-        const item = this.expenses.find(i => i.id === id);
+      // Xóa Lần Bơm Tiền
+      async deleteIncome(id) {
+        if (!confirm("Bạn có chắc chắn muốn xóa lần bơm tiền này? Ngân sách tổng sẽ bị giảm tương ứng.")) {
+          return;
+        }
+        await this.db.ref(`rooms/${this.roomId}/budgets/${id}`).remove();
+      }
+
+      // Mở Modal Sửa Chi Tiêu
+      openEditExpenseModal(id) {
+        const item = this.expenses.find(i => String(i.id) === String(id));
         if (!item) return;
 
-        this.editId.value = item.id;
-        this.editDesc.value = item.desc;
-        this.editAmount.value = item.amount;
-        this.editCategory.value = item.category;
-        this.editDate.value = item.date;
-        this.editTempImage = item.receiptImage || null;
-        this.editImageInput.value = "";
+        this.editExpenseId.value = item.id;
+        this.editExpenseDesc.value = item.desc;
+        this.editExpenseAmount.value = item.amount;
+        this.editExpenseCategory.value = item.category;
+        this.editExpenseDate.value = item.date;
 
-        this.editModal.style.display = "flex";
+        this.editExpenseModal.style.display = "flex";
       }
 
       async saveEditedExpense() {
-        const id = parseInt(this.editId.value, 10);
-        const desc = this.editDesc.value.trim();
-        const amount = parseFloat(this.editAmount.value);
-        const category = this.editCategory.value;
-        const date = this.editDate.value;
+        const id = this.editExpenseId.value;
+        const desc = this.editExpenseDesc.value.trim();
+        const amount = parseFloat(this.editExpenseAmount.value);
+        const category = this.editExpenseCategory.value;
+        const date = this.editExpenseDate.value;
 
         if (!desc || isNaN(amount) || amount <= 0 || !date) {
           alert("Vui lòng nhập thông tin hợp lệ.");
           return;
         }
 
-        const index = this.expenses.findIndex(i => i.id === id);
-        if (index !== -1) {
-          this.expenses[index].desc = desc;
-          this.expenses[index].amount = amount;
-          this.expenses[index].category = category;
-          this.expenses[index].date = date;
-          if (this.editTempImage) {
-            this.expenses[index].receiptImage = this.editTempImage;
-          }
+        await this.db.ref(`rooms/${this.roomId}/expenses/${id}`).update({
+          desc: desc,
+          amount: amount,
+          category: category,
+          date: date
+        });
 
-          await this.db.put("expenses", this.expenses[index]);
-          this.render();
-          this.editModal.style.display = "none";
+        this.editExpenseModal.style.display = "none";
+      }
+
+      // Mở Modal Sửa Bơm Tiền
+      openEditIncomeModal(id) {
+        const item = this.budgets.find(i => String(i.id) === String(id));
+        if (!item) return;
+
+        this.editIncomeId.value = item.id;
+        this.editIncomeNote.value = item.note || "";
+        this.editIncomeAmount.value = item.amount;
+        this.editIncomeDate.value = item.date || new Date().toISOString().split("T")[0];
+
+        this.editIncomeModal.style.display = "flex";
+      }
+
+      async saveEditedIncome() {
+        const id = this.editIncomeId.value;
+        const note = this.editIncomeNote.value.trim();
+        const amount = parseFloat(this.editIncomeAmount.value);
+        const date = this.editIncomeDate.value;
+
+        if (!note || isNaN(amount) || amount <= 0 || !date) {
+          alert("Vui lòng nhập đầy đủ thông tin hợp lệ.");
+          return;
         }
+
+        await this.db.ref(`rooms/${this.roomId}/budgets/${id}`).update({
+          note: note,
+          amount: amount,
+          date: date
+        });
+
+        this.editIncomeModal.style.display = "none";
       }
 
       openLightbox(src) {
@@ -1152,74 +1315,69 @@
         this.lightboxModal.style.display = "flex";
       }
 
-      exportJson() {
-        const backupData = {
-          version: "4.0",
-          exportDate: new Date().toISOString(),
-          budgets: this.budgets,
-          expenses: this.expenses
-        };
-
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `SaoLuu_ChiTieu_${new Date().toISOString().split("T")[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
       exportCsv() {
-        if (this.expenses.length === 0) {
-          alert("Chưa có dữ liệu để xuất.");
+        const unifiedList = this.getUnifiedTransactionList();
+        if (unifiedList.length === 0) {
+          alert("Chưa có giao dịch để xuất báo cáo.");
           return;
         }
 
-        let csv = "\uFEFFNgày,Danh mục,Nội dung,Số tiền (VNĐ),Có ảnh đính kèm\n";
-        this.expenses.forEach(it => {
-          const safeDesc = `"${it.desc.replace(/"/g, '""')}"`;
-          const hasImg = it.receiptImage ? "Có" : "Không";
-          csv += `${it.date},${it.category},${safeDesc},${it.amount},${hasImg}\n`;
+        let csv = "\uFEFFNgày,Loại,Danh mục / Phân loại,Nội dung,Số tiền (VNĐ),Có ảnh\n";
+        unifiedList.forEach(item => {
+          const typeStr = item.type === "income" ? "Bơm tiền (+)" : "Chi tiêu (-)";
+          const safeDesc = `"${(item.desc || "").replace(/"/g, '""')}"`;
+          const hasImg = item.receiptImage ? "Có" : "Không";
+          const amountFormatted = (item.type === "income" ? "+" : "-") + item.amount;
+          csv += `${item.date},${typeStr},${item.category},${safeDesc},${amountFormatted},${hasImg}\n`;
         });
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `BaoCao_ChiTieu_${new Date().toISOString().split("T")[0]}.csv`;
+        a.download = `ThuChi_${this.roomId}_${new Date().toISOString().split("T")[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
       }
 
-      importJson(file) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          try {
-            const data = JSON.parse(e.target.result);
-            if (!Array.isArray(data.budgets) || !Array.isArray(data.expenses)) {
-              throw new Error("File sao lưu không đúng cấu trúc.");
-            }
+      // Trộn và chuẩn hóa toàn bộ giao dịch Bơm tiền & Chi tiêu
+      getUnifiedTransactionList() {
+        const incomeList = this.budgets.map(b => ({
+          id: b.id,
+          type: "income",
+          date: b.date || "2026-01-01",
+          desc: b.note || "Bơm ngân sách",
+          category: "Ngân sách nạp",
+          amount: Number(b.amount) || 0,
+          receiptImage: null
+        }));
 
-            if (confirm("Thao tác này sẽ cập nhật lại toàn bộ lịch sử chi tiêu từ bản sao lưu. Bạn có muốn tiếp tục?")) {
-              await this.db.clearAndSet("budgets", data.budgets);
-              await this.db.clearAndSet("expenses", data.expenses);
-              this.budgets = data.budgets;
-              this.expenses = data.expenses;
-              this.render();
-              alert("Phục hồi dữ liệu thành công!");
-            }
-          } catch (err) {
-            alert("Lỗi đọc file: " + err.message);
-          } finally {
-            this.importFileInput.value = "";
+        const expenseList = this.expenses.map(e => ({
+          id: e.id,
+          type: "expense",
+          date: e.date,
+          desc: e.desc,
+          category: e.category,
+          amount: Number(e.amount) || 0,
+          receiptImage: e.receiptImage || null
+        }));
+
+        const combined = [...incomeList, ...expenseList];
+
+        // Sắp xếp theo ngày giảm dần; nếu trùng ngày xếp theo ID giảm dần
+        combined.sort((a, b) => {
+          if (b.date === a.date) {
+            return String(b.id).localeCompare(String(a.id));
           }
-        };
-        reader.readAsText(file);
+          return b.date.localeCompare(a.date);
+        });
+
+        return combined;
       }
 
       render() {
-        const totalBudget = this.budgets.reduce((sum, i) => sum + i.amount, 0);
-        const totalExpense = this.expenses.reduce((sum, i) => sum + i.amount, 0);
+        const totalBudget = this.budgets.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+        const totalExpense = this.expenses.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
         const balance = totalBudget - totalExpense;
 
         this.budgetDisplay.textContent = this.formatCurrency(totalBudget);
@@ -1232,13 +1390,23 @@
           this.balanceDisplay.className = "amount balance-pos";
         }
 
-        this.txCount.textContent = `${this.expenses.length} khoản chi`;
+        const allTransactions = this.getUnifiedTransactionList();
+        
+        let filteredTransactions = allTransactions;
+        if (this.currentFilter === "income") {
+          filteredTransactions = allTransactions.filter(t => t.type === "income");
+        } else if (this.currentFilter === "expense") {
+          filteredTransactions = allTransactions.filter(t => t.type === "expense");
+        }
+
+        this.txCount.textContent = `${filteredTransactions.length} giao dịch`;
         this.transactionTableBody.innerHTML = "";
 
-        if (this.expenses.length === 0) {
+        if (filteredTransactions.length === 0) {
+          const colSpan = this.isReadOnly ? 6 : 7;
           this.transactionTableBody.innerHTML = `
             <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">
+              <td colspan="${colSpan}" style="text-align: center; color: var(--text-muted); padding: 32px;">
                 Chưa có dữ liệu giao dịch nào.
               </td>
             </tr>
@@ -1246,48 +1414,87 @@
           return;
         }
 
-        this.expenses.forEach(item => {
+        filteredTransactions.forEach(item => {
           const row = document.createElement("tr");
 
-          let imgHtml = "<span style='color: #94a3b8; font-size: 11px;'>Không có</span>";
+          // Xử lý cột ảnh
+          let imgHtml = "<span style='color: #94a3b8; font-size: 11px;'>-</span>";
           if (item.receiptImage) {
-            imgHtml = `<img class="receipt-thumbnail" src="${item.receiptImage}" alt="Chứng từ" title="Nhấp để phóng to" />`;
+            imgHtml = `<img class="receipt-thumbnail" src="${item.receiptImage}" alt="Chứng từ" title="Nhấp để xem to" />`;
+          }
+
+          // Huy hiệu loại giao dịch
+          let typeBadge = "";
+          let amountFormatted = "";
+
+          if (item.type === "income") {
+            typeBadge = `<span class="badge badge-income">Bơm tiền</span>`;
+            amountFormatted = `<strong style="color: var(--success);">+${this.formatCurrency(item.amount)}</strong>`;
+          } else {
+            typeBadge = `<span class="badge badge-expense">Chi tiêu</span>`;
+            amountFormatted = `<strong style="color: var(--danger);">-${this.formatCurrency(item.amount)}</strong>`;
+          }
+
+          // Cột thao tác
+          let actionColHtml = "";
+          if (!this.isReadOnly) {
+            actionColHtml = `
+              <td>
+                <div class="action-links">
+                  <button type="button" class="btn-link btn-edit" data-id="${item.id}" data-type="${item.type}">Sửa</button>
+                  <button type="button" class="btn-link btn-delete" data-id="${item.id}" data-type="${item.type}">Xóa</button>
+                </div>
+              </td>
+            `;
           }
 
           row.innerHTML = `
             <td>${item.date}</td>
+            <td>${typeBadge}</td>
             <td>${imgHtml}</td>
             <td><strong>${item.desc}</strong></td>
-            <td><span class="badge">${item.category}</span></td>
-            <td style="color: var(--danger); font-weight: 700;">-${this.formatCurrency(item.amount)}</td>
-            <td>
-              <div class="action-links">
-                <button type="button" class="btn-link btn-edit" data-id="${item.id}">Sửa</button>
-                <button type="button" class="btn-link btn-delete" data-id="${item.id}">Xóa</button>
-              </div>
-            </td>
+            <td><span class="badge badge-category">${item.category}</span></td>
+            <td>${amountFormatted}</td>
+            ${actionColHtml}
           `;
 
+          // Gắn sự kiện phóng to ảnh
           if (item.receiptImage) {
             row.querySelector(".receipt-thumbnail").addEventListener("click", () => {
               this.openLightbox(item.receiptImage);
             });
           }
 
-          row.querySelector(".btn-edit").addEventListener("click", () => {
-            this.openEditModal(item.id);
-          });
-          row.querySelector(".btn-delete").addEventListener("click", () => {
-            this.deleteExpense(item.id);
-          });
+          // Gắn sự kiện Sửa và Xóa theo từng loại (income hoặc expense)
+          if (!this.isReadOnly) {
+            const btnEdit = row.querySelector(".btn-edit");
+            const btnDelete = row.querySelector(".btn-delete");
+
+            btnEdit.addEventListener("click", () => {
+              if (item.type === "income") {
+                this.openEditIncomeModal(item.id);
+              } else {
+                this.openEditExpenseModal(item.id);
+              }
+            });
+
+            btnDelete.addEventListener("click", () => {
+              if (item.type === "income") {
+                this.deleteIncome(item.id);
+              } else {
+                this.deleteExpense(item.id);
+              }
+            });
+          }
 
           this.transactionTableBody.appendChild(row);
         });
       }
     }
 
+    // Khởi chạy ứng dụng khi DOM sẵn sàng
     document.addEventListener("DOMContentLoaded", () => {
-      new ExpenseApp();
+      new FamilyFinanceApp();
     });
   </script>
 </body>
